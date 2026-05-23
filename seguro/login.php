@@ -1,109 +1,82 @@
 <?php
-// ==========================================
-// login.php - Autenticação e Proteção
-// ==========================================
-require 'config.php';
+session_start();
 
-$mensagem = '';
-$max_tentativas = 5;
-$tempo_bloqueio = 15; // minutos
+$db_host = "localhost";
+$db_user = "root"; 
+$db_pass = "";
+$db_name = "lab_seguranca_seguro";
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = trim($_POST['email']);
-    $senha = $_POST['senha'];
-    $ip = $_SERVER['REMOTE_ADDR'];
+$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 
-    // 1. DEFESA: CHECAGEM DE FORÇA BRUTA (Rate Limiting)
-    $stmt = $conn->prepare("SELECT tentativas, ultimo_erro FROM controle_bloqueio WHERE ip = ?");
-    $stmt->bind_param("s", $ip);
-    $stmt->execute();
-    $resultado_bloqueio = $stmt->get_result();
-    $bloqueio = $resultado_bloqueio->fetch_assoc();
-    $stmt->close();
-
-    if ($bloqueio && $bloqueio['tentativas'] >= $max_tentativas) {
-        $minutos_passados = (time() - strtotime($bloqueio['ultimo_erro'])) / 60;
-        if ($minutos_passados < $tempo_bloqueio) {
-            die("Múltiplas tentativas falhas. O IP $ip está bloqueado por $tempo_bloqueio minutos.");
-        } else {
-            // Tempo expirou, libera o IP
-            $stmt = $conn->prepare("DELETE FROM controle_bloqueio WHERE ip = ?");
-            $stmt->bind_param("s", $ip);
-            $stmt->execute();
-            $stmt->close();
-            $bloqueio = null; 
-        }
-    }
-
-    // 2. DEFESA: BUSCA O USUÁRIO (Prepared Statement)
-    $stmt = $conn->prepare("SELECT id, nome, senha_hash, perfil FROM usuarios WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $resultado_user = $stmt->get_result();
-    $usuario = $resultado_user->fetch_assoc();
-    $stmt->close();
-
-    // 3. DEFESA: VALIDAÇÃO DO HASH E MENSAGEM GENÉRICA
-    if ($usuario && password_verify($senha, $usuario['senha_hash'])) {
-        // SUCESSO: Renova o ID da sessão para evitar Session Hijacking
-        session_regenerate_id(true); 
-        
-        $_SESSION['usuario_id'] = $usuario['id'];
-        $_SESSION['nome'] = $usuario['nome'];
-        $_SESSION['perfil'] = $usuario['perfil'];
-        $_SESSION['ultima_atividade'] = time();
-
-        // Limpa registro de falhas deste IP
-        $stmt = $conn->prepare("DELETE FROM controle_bloqueio WHERE ip = ?");
-        $stmt->bind_param("s", $ip);
-        $stmt->execute();
-        $stmt->close();
-
-        registrarAuditoria($conn, $email, 'Sucesso');
-        header("Location: painel.php");
-        exit;
-    } else {
-        // FALHA: Mensagem genérica impede Enumeração de Usuários
-        $mensagem = "Credenciais inválidas.";
-        registrarAuditoria($conn, $email, 'Falha');
-
-        // Incrementa ou cria o bloqueio do IP
-        if ($bloqueio) {
-            $stmt = $conn->prepare("UPDATE controle_bloqueio SET tentativas = tentativas + 1 WHERE ip = ?");
-            $stmt->bind_param("s", $ip);
-            $stmt->execute();
-            $stmt->close();
-        } else {
-            $stmt = $conn->prepare("INSERT INTO controle_bloqueio (ip) VALUES (?)");
-            $stmt->bind_param("s", $ip);
-            $stmt->execute();
-            $stmt->close();
-        }
-    }
+if ($conn->connect_error) {
+    die("Falha na conexão com o banco de dados: " . $conn->connect_error);
 }
 
-// Verifica se foi redirecionado por timeout
-if (isset($_GET['erro']) && $_GET['erro'] == 'timeout') {
-    $mensagem = "Sua sessão expirou por inatividade.";
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $usuario = $_POST["username"];
+    $senha = $_POST["password"];
+
+    // 1. Buscamos APENAS pelo username usando Prepared Statement
+    $stmt = $conn->prepare("SELECT * FROM usuarios WHERE username = ?");
+    $stmt->bind_param("s", $usuario);
+    $stmt->execute();
+    
+    $resultado = $stmt->get_result();
+    $erro = false;
+
+    // 2. Se o usuário existir, verificamos o Hash da senha
+    if ($resultado && $resultado->num_rows > 0) {
+        $row = $resultado->fetch_assoc();
+        
+        // CORREÇÃO: Compara a senha digitada em texto plano com o Hash do banco
+        if (password_verify($senha, $row['password'])) {
+            // Senha correta, inicia a sessão
+            $_SESSION['logado'] = true;
+            $_SESSION['usuario'] = $row['username'];
+            header("location: portal.php");
+            exit;
+        } else {
+            // Senha incorreta
+            $erro = true;
+        }
+    } else { 
+        // Usuário não existe
+        $erro = true;
+    }
+
+    // 3. Exibe mensagem de erro genérica (boa prática para não revelar se o erro foi no usuário ou na senha)
+    if ($erro) {
+        echo ("<div style='color:red; margin: 40px 40px 0 40px;'>Falha na autenticação. O usuário <b>" . htmlspecialchars($usuario, ENT_QUOTES, 'UTF-8') . "</b> ou a senha estão incorretos.</div>");
+    }
+    
+    $stmt->close();
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Login Seguro</title></head>
-<body style="font-family: sans-serif; margin: 40px;">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        .container { border: 1px solid #ccc; padding: 20px; max-width: 300px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
     <h2>Acesso ao Sistema</h2>
-    <?php if ($mensagem) echo "<p style='color:red;'>$mensagem</p>"; ?>
     <form method="POST" action="">
-        <label>E-mail:</label><br>
-        <input type="email" name="email" required><br><br>
+        <label for="username">Usuário:</label><br>
+        <input type="text" id="username" name="username" required><br><br>
         
-        <label>Senha:</label><br>
-        <input type="password" name="senha" required><br><br>
+        <label for="password">Senha:</label><br>
+        <input type="password" id="password" name="password" required><br><br>
         
         <input type="submit" value="Entrar">
     </form>
-    <br>
-    <a href="cadastro.php">Criar nova conta</a>
+</div>
+
 </body>
 </html>
