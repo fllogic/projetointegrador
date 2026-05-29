@@ -1,55 +1,64 @@
 <?php
 session_start();
+require 'conexao.php';
 
-$db_host = "localhost";
-$db_user = "root"; 
-$db_pass = "";
-$db_name = "lab_seguranca_seguro";
-
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-
-if ($conn->connect_error) {
-    die("Falha na conexão com o banco de dados: " . $conn->connect_error);
+// Limite de tentativas via Sessão (Aula 5 LPI)
+if (!isset($_SESSION['tentativas'])) {
+    $_SESSION['tentativas'] = 0;
 }
 
+$erro = "";
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $usuario = $_POST["username"];
+    if ($_SESSION['tentativas'] >= 3) {
+        die("<h3 style='color:red;'>Sistema bloqueado. Muitas tentativas falhas. Tente novamente mais tarde.</h3>");
+    }
+
+    $email = trim($_POST["email"]);
     $senha = $_POST["password"];
+    $ip = $_SERVER['REMOTE_ADDR'];
 
-    // 1. Buscamos APENAS pelo username usando Prepared Statement
-    $stmt = $conn->prepare("SELECT * FROM usuarios WHERE username = ?");
-    $stmt->bind_param("s", $usuario);
+    // Uso de Prepared Statement (Justificativa 1 - Prevenção SQLi)
+    $stmt = $conn->prepare("SELECT id, nome, senha_hash, perfil, ativo FROM usuarios WHERE email = ?");
+    $stmt->bind_param("s", $email);
     $stmt->execute();
-    
     $resultado = $stmt->get_result();
-    $erro = false;
 
-    // 2. Se o usuário existir, verificamos o Hash da senha
-    if ($resultado && $resultado->num_rows > 0) {
-        $row = $resultado->fetch_assoc();
-        
-        // CORREÇÃO: Compara a senha digitada em texto plano com o Hash do banco
-        if (password_verify($senha, $row['password'])) {
-            // Senha correta, inicia a sessão
-            $_SESSION['logado'] = true;
-            $_SESSION['usuario'] = $row['username'];
-            header("location: portal.php");
+    if ($resultado->num_rows > 0) {
+        $usuario = $resultado->fetch_assoc();
+
+        // Validação com bcrypt
+        if (password_verify($senha, $usuario['senha_hash']) && $usuario['ativo'] == 1) {
+            
+            // SUCESSO
+            $_SESSION['tentativas'] = 0; // Reseta tentativas
+            $_SESSION['id_usuario'] = $usuario['id'];
+            $_SESSION['nome'] = $usuario['nome'];
+            $_SESSION['perfil'] = $usuario['perfil'];
+            
+            // Controle de expiração (15 minutos)
+            date_default_timezone_set('America/Sao_Paulo');
+            $_SESSION['data_expiracao'] = date("Y-m-d H:i:s", strtotime("+15 minutes"));
+
+            // Grava Log de Sucesso
+            $log_stmt = $conn->prepare("INSERT INTO logs_acesso (email_tentado, ip_origem, status_login) VALUES (?, ?, 'Sucesso')");
+            $log_stmt->bind_param("ss", $email, $ip);
+            $log_stmt->execute();
+
+            header("Location: portal.php");
             exit;
-        } else {
-            // Senha incorreta
-            $erro = true;
         }
-    } else { 
-        // Usuário não existe
-        $erro = true;
-    }
-
-    // 3. Exibe mensagem de erro genérica (boa prática para não revelar se o erro foi no usuário ou na senha)
-    if ($erro) {
-        echo ("<div style='color:red; margin: 40px 40px 0 40px;'>Falha na autenticação. O usuário <b>" . htmlspecialchars($usuario, ENT_QUOTES, 'UTF-8') . "</b> ou a senha estão incorretos.</div>");
     }
     
-    $stmt->close();
+    // FALHA (Mensagem genérica para não confirmar existência do e-mail)
+    $_SESSION['tentativas']++;
+    
+    // Grava Log de Falha
+    $log_stmt = $conn->prepare("INSERT INTO logs_acesso (email_tentado, ip_origem, status_login) VALUES (?, ?, 'Falha')");
+    $log_stmt->bind_param("ss", $email, $ip);
+    $log_stmt->execute();
+
+    $erro = "Falha na autenticação. E-mail ou senha incorretos.";
 }
 ?>
 
@@ -57,26 +66,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Login</title>
+    <title>Login Seguro</title>
     <style>
         body { font-family: sans-serif; margin: 40px; }
         .container { border: 1px solid #ccc; padding: 20px; max-width: 300px; }
+        .erro { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <h2>Acesso ao Sistema</h2>
+    <h2>Acesso Seguro</h2>
+    <?php if($erro) echo "<p class='erro'>$erro</p>"; ?>
+    
     <form method="POST" action="">
-        <label for="username">Usuário:</label><br>
-        <input type="text" id="username" name="username" required><br><br>
+        <label for="email">E-mail:</label><br>
+        <input type="email" id="email" name="email" required><br><br>
         
         <label for="password">Senha:</label><br>
         <input type="password" id="password" name="password" required><br><br>
         
-        <input type="submit" value="Entrar">
+        <button type="submit">Entrar</button>
     </form>
+    <br>
+    <a href="recuperar_senha.php" style="font-size: 12px;">Esqueci minha senha</a>
 </div>
-
 </body>
 </html>
