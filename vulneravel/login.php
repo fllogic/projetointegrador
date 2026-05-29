@@ -4,62 +4,57 @@ $db_host = "localhost";
 $db_user = "root"; 
 $db_pass = "";
 $db_name = "lab_seguranca";
-// conexao sql
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+$erro = "";
 
 if ($conn->connect_error) {
     die("Falha na conexão com o banco de dados: " . $conn->connect_error);
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // VULNERABILIDADE: Recebendo os dados sem qualquer tipo de filtro ou sanitização
     $usuario = $_POST["username"];
     $senha = $_POST["password"];
 
-    // VULNERABILIDADE: Comparação direta de strings em texto plano
     $sql = "SELECT * FROM usuarios WHERE username = '$usuario' AND password = '$senha'";
-    
     $resultado = $conn->query($sql);
 
-    // Se retornar 1 ou mais linhas, o login é válido
     if ($resultado && $resultado->num_rows > 0) {
         $row = $resultado->fetch_assoc();
         header("location: portal.php");
     } else { 
-        // VULNERABILIDADE: O input do usuário é inserido diretamente na resposta HTML.
-        echo ("Falha na autenticação. O usuário <b>" . $usuario . "</b> ou a senha estão incorretos.");
+        $erro = "Falha na autenticação. O usuário <b>" . $usuario . "</b> ou a senha estão incorretos.";
     }
 }
 ?>
-
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
-    <style>
-        body { font-family: sans-serif; margin: 40px; }
-        .container { border: 1px solid #ccc; padding: 20px; max-width: 300px; }
-        .erro { color: red; }
-        .sucesso { color: green; }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-
-<div class="container">
-    <h2>Acesso ao Sistema</h2>
-
-    <!-- VULNERABILIDADE: O formulário envia dados em texto plano -->
-    <form method="POST" action="">
-        <label for="username">Usuário:</label><br>
-        <input type="text" id="username" name="username" required><br><br>
-        
-        <label for="password">Senha:</label><br>
-        <input type="password" id="password" name="password" required><br><br>
-        
-        <input type="submit" value="Entrar">
-    </form>
-</div>
-
+<body class="d-flex align-items-center py-4 bg-dark">
+    <main class="form-signin w-100 m-auto" style="max-width: 400px; margin-top: 10vh !important;">
+        <div class="card bg-secondary text-light border-danger">
+            <div class="card-header bg-danger text-white text-center">
+                <h4>Acesso ao Sistema</h4>
+            </div>
+            <div class="card-body p-4">
+                <?php if($erro) echo "<div class='alert alert-warning'>$erro</div>"; ?>
+                <form method="POST" action="">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Usuário</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Senha</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button class="btn btn-danger w-100" type="submit">Entrar</button>
+                </form>
+            </div>
+        </div>
+    </main>
 </body>
 </html>

@@ -66,29 +66,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Login Seguro</title>
-    <style>
-        body { font-family: sans-serif; margin: 40px; }
-        .container { border: 1px solid #ccc; padding: 20px; max-width: 300px; }
-        .erro { color: red; font-weight: bold; }
-    </style>
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-<div class="container">
-    <h2>Acesso Seguro</h2>
-    <?php if($erro) echo "<p class='erro'>$erro</p>"; ?>
-    
-    <form method="POST" action="">
-        <label for="email">E-mail:</label><br>
-        <input type="email" id="email" name="email" required><br><br>
-        
-        <label for="password">Senha:</label><br>
-        <input type="password" id="password" name="password" required><br><br>
-        
-        <button type="submit">Entrar</button>
-    </form>
-    <br>
-    <a href="recuperar_senha.php" style="font-size: 12px;">Esqueci minha senha</a>
-</div>
+<body class="bg-light d-flex align-items-center py-4">
+    <main class="form-signin w-100 m-auto" style="max-width: 400px; margin-top: 10vh !important;">
+        <div class="card shadow border-0">
+            <div class="card-header bg-primary text-white text-center py-3">
+                <h4 class="mb-0"> Acesso ao Sistema</h4>
+            </div>
+            <div class="card-body p-4">
+                <?php if($erro) echo "<div class='alert alert-danger'>$erro</div>"; ?>
+                
+                <form method="POST" action="">
+                    <div class="form-floating mb-3">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="nome@exemplo.com" required>
+                        <label for="email">E-mail corporativo</label>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Senha" required>
+                        <label for="password">Senha</label>
+                    </div>
+                    <button class="btn btn-primary w-100 py-2" type="submit">Autenticar</button>
+                </form>
+                <div class="text-center mt-3">
+                    <a href="recuperar_senha.php" class="text-decoration-none small">Esqueci minha senha</a>
+                </div>
+            </div>
+        </div>
+    </main>
 </body>
 </html>

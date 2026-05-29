@@ -89,183 +89,103 @@ if ($acao == 'salvar_edicao' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Painel Seguro - Clientes</title>
-    <style>
-        body { font-family: sans-serif; margin: 40px; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 14px; }
-        th { background-color: #2c3e50; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .acoes a { margin-right: 10px; text-decoration: none; color: blue; }
-        .btn { display: inline-block; padding: 10px 15px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-bottom: 20px;}
-        .form-container { border: 1px solid #ccc; padding: 20px; max-width: 400px; background: #f9f9f9;}
-        .form-container input, .form-container select { width: 100%; padding: 8px; margin: 5px 0 15px 0; }
-        .status { font-weight: bold; }
-        .concluido { color: green; } .andamento { color: orange; } .pendente { color: red; }
-        .header-usuario { float: right; background: #eef; padding: 10px; border-radius: 5px; border: 1px solid #ccd; }
-    </style>
+    <title>Painel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
 
-    <div class="header-usuario">
-        👤 <b><?php echo htmlspecialchars($_SESSION['nome']); ?></b> (<?php echo $_SESSION['perfil']; ?>)<br>
-        <a href="logout.php" style="color: red; text-decoration: none; font-weight: bold;">Sair</a>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="portal.php">Portal Corporativo</a>
+    <div class="d-flex align-items-center text-white">
+        <span class="me-3">👤 <b><?php echo htmlspecialchars($_SESSION['nome']); ?></b> (<?php echo $_SESSION['perfil']; ?>)</span>
+        <a href="logout.php" class="btn btn-sm btn-outline-light">Sair</a>
     </div>
+  </div>
+</nav>
 
-    <h2>Gestão de Clientes: Assistência Técnica</h2>
+<div class="container bg-white p-4 shadow-sm rounded">
+    <h2 class="mb-4 border-bottom pb-2 text-primary">Gestão de Clientes: Assistência Técnica</h2>
 
     <?php if($isAdmin): ?>
-        <p style="background: #e8f4f8; padding: 10px; border-left: 4px solid #17a2b8;">
-             <b><a href="cadastro_usuario.php">Cadastrar Novos Usuários</a>
-        </p>
+        <div class="alert alert-info d-flex align-items-center">
+            <span class="me-2"></span> 
+            <div><a href="cadastro_usuario.php" class="alert-link">Cadastrar Novos Usuários</a>.</div>
+        </div>
     <?php endif; ?>
 
-    <?php 
-    // ==========================================
-    // EXIBIÇÃO: LISTAR TODOS OS CLIENTES
-    // ==========================================
-    if ($acao == 'listar'): 
-        $sql = "SELECT * FROM clientes_reparo";
-        $resultado = $conn->query($sql);
-    ?>
-        <a href="?acao=adicionar" class="btn">Adicionar Novo Cliente</a>
+    <?php if ($acao == 'listar'): ?>
+        <a href="?acao=adicionar" class="btn btn-primary mb-3">Novo Cliente</a>
         
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Aparelho</th><th>Problema</th><th>Status</th><th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                if ($resultado && $resultado->num_rows > 0) {
-                    while($row = $resultado->fetch_assoc()) {
-                        
-                        $status = $row["status_servico"];
-                        $classe_status = ($status == "Concluído") ? "concluido" : (($status == "Em andamento" || $status == "Avaliação técnica") ? "andamento" : "pendente");
+        <div class="table-responsive">
+            <table class="table table-hover align-middle border">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Aparelho</th><th>Problema</th><th>Status</th><th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $sql = "SELECT * FROM clientes_reparo";
+                    $resultado = $conn->query($sql);
+                    if ($resultado && $resultado->num_rows > 0) {
+                        while($row = $resultado->fetch_assoc()) {
+                            // Definindo a cor do badge com base no status
+                            $status = $row["status_servico"];
+                            $badge = "bg-secondary";
+                            if($status == "Concluído") $badge = "bg-success";
+                            elseif($status == "Em andamento" || $status == "Avaliação técnica") $badge = "bg-warning text-dark";
+                            elseif($status == "Sem conserto") $badge = "bg-danger";
 
-                        // htmlspecialchars em TODOS os campos para mitigar ataques de XSS (Cross-Site Scripting)
-                        echo "<tr>";
-                        echo "<td>" . $row["id"] . "</td>";
-                        echo "<td>" . htmlspecialchars($row["nome"]) . "</td>"; 
-                        echo "<td>" . htmlspecialchars($row["email"]) . "</td>";
-                        echo "<td>" . htmlspecialchars($row["telefone"]) . "</td>";
-                        echo "<td>" . htmlspecialchars($row["modelo_aparelho"]) . "</td>";
-                        echo "<td>" . htmlspecialchars($row["problema_relatado"]) . "</td>";
-                        echo "<td class='status " . $classe_status . "'>" . htmlspecialchars($status) . "</td>";
-                        
-                        echo "<td class='acoes'>";
-                        echo "<a href='?acao=editar&id=" . $row["id"] . "'>✏️ Editar</a>";
-                        echo "<a href='?acao=excluir&id=" . $row["id"] . "' onclick=\"return confirm('Tem certeza que deseja excluir o cliente ID ".$row["id"]."?')\">🗑️ Excluir</a>";
-                        echo "</td>";
-                        echo "</tr>";
+                            echo "<tr>";
+                            echo "<td>" . $row["id"] . "</td>";
+                            echo "<td>" . htmlspecialchars($row["nome"]) . "</td>"; 
+                            echo "<td>" . htmlspecialchars($row["email"]) . "</td>";
+                            echo "<td>" . htmlspecialchars($row["telefone"]) . "</td>";
+                            echo "<td>" . htmlspecialchars($row["modelo_aparelho"]) . "</td>";
+                            echo "<td>" . htmlspecialchars($row["problema_relatado"]) . "</td>";
+                            echo "<td><span class='badge $badge'>" . htmlspecialchars($status) . "</span></td>";
+                            
+                            echo "<td>
+                                    <a href='?acao=editar&id=" . $row["id"] . "' class='btn btn-sm btn-primary'>Editar</a>";
+                            if($isAdmin) {
+                                echo " <a href='?acao=excluir&id=" . $row["id"] . "' class='btn btn-sm btn-danger' onclick=\"return confirm('Confirma a exclusão?')\">Excluir</a>";
+                            }
+                            echo "</td></tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='8' class='text-center'>Nenhum cliente.</td></tr>";
                     }
-                } else {
-                    echo "<tr><td colspan='8'>Nenhum cliente encontrado.</td></tr>";
-                }
-                ?>
-            </tbody>
-        </table>
-
-    <?php 
-    // ==========================================
-    // EXIBIÇÃO: FORMULÁRIO DE ADICIONAR
-    // ==========================================
-    elseif ($acao == 'adicionar'): 
-    ?>
-        <div class="form-container">
-            <h3>Adicionar Cliente</h3>
-            <form action="?acao=salvar_novo" method="POST">
-                <label>Nome:</label>
-                <input type="text" name="nome" required>
-
-                <label>E-mail:</label>
-                <input type="email" name="email">
-
-                <label>Telefone:</label>
-                <input type="text" name="telefone">
-
-                <label>Modelo do Aparelho:</label>
-                <input type="text" name="modelo_aparelho" required>
-
-                <label>Problema Relatado:</label>
-                <input type="text" name="problema_relatado" required>
-
-                <label>Status do Serviço:</label>
-                <select name="status_servico">
-                    <option value="Avaliação técnica">Avaliação técnica</option>
-                    <option value="Orçamento enviado">Orçamento enviado</option>
-                    <option value="Aguardando aprovação">Aguardando aprovação</option>
-                    <option value="Aguardando peça">Aguardando peça</option>
-                    <option value="Em andamento">Em andamento</option>
-                    <option value="Concluído">Concluído</option>
-                    <option value="Sem conserto">Sem conserto</option>
-                </select>
-
-                <input type="submit" value="Salvar Cliente" class="btn" style="width: 100%;">
-                <a href="?acao=listar">Cancelar</a>
-            </form>
+                    ?>
+                </tbody>
+            </table>
         </div>
 
-    <?php 
-    // ==========================================
-    // EXIBIÇÃO: FORMULÁRIO DE EDITAR
-    // ==========================================
-    elseif ($acao == 'editar' && isset($_GET['id'])): 
-        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-        
-        if ($id) {
-            // Prepared statement para leitura segura na edição
-            $stmt = $conn->prepare("SELECT * FROM clientes_reparo WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $resultado = $stmt->get_result();
-            $cliente = $resultado->fetch_assoc();
-            $stmt->close();
-        }
-
-        if (isset($cliente) && $cliente):
-    ?>
-        <div class="form-container">
-            <h3>Editar Cliente #<?php echo $cliente['id']; ?></h3>
-            <form action="?acao=salvar_edicao" method="POST">
-                
-                <input type="hidden" name="id" value="<?php echo $cliente['id']; ?>">
-
-                <label>Nome:</label>
-                <input type="text" name="nome" value="<?php echo htmlspecialchars($cliente['nome']); ?>" required>
-
-                <label>E-mail:</label>
-                <input type="email" name="email" value="<?php echo htmlspecialchars($cliente['email']); ?>">
-
-                <label>Telefone:</label>
-                <input type="text" name="telefone" value="<?php echo htmlspecialchars($cliente['telefone']); ?>">
-
-                <label>Modelo do Aparelho:</label>
-                <input type="text" name="modelo_aparelho" value="<?php echo htmlspecialchars($cliente['modelo_aparelho']); ?>" required>
-
-                <label>Problema Relatado:</label>
-                <input type="text" name="problema_relatado" value="<?php echo htmlspecialchars($cliente['problema_relatado']); ?>" required>
-
-                <label>Status do Serviço:</label>
-                <select name="status_servico">
-                    <option value="Avaliação técnica" <?php if($cliente['status_servico'] == 'Avaliação técnica') echo 'selected'; ?>>Avaliação técnica</option>
-                    <option value="Orçamento enviado" <?php if($cliente['status_servico'] == 'Orçamento enviado') echo 'selected'; ?>>Orçamento enviado</option>
-                    <option value="Aguardando aprovação" <?php if($cliente['status_servico'] == 'Aguardando aprovação') echo 'selected'; ?>>Aguardando aprovação</option>
-                    <option value="Aguardando peça" <?php if($cliente['status_servico'] == 'Aguardando peça') echo 'selected'; ?>>Aguardando peça</option>
-                    <option value="Em andamento" <?php if($cliente['status_servico'] == 'Em andamento') echo 'selected'; ?>>Em andamento</option>
-                    <option value="Concluído" <?php if($cliente['status_servico'] == 'Concluído') echo 'selected'; ?>>Concluído</option>
-                    <option value="Sem conserto" <?php if($cliente['status_servico'] == 'Sem conserto') echo 'selected'; ?>>Sem conserto</option>
-                </select>
-
-                <input type="submit" value="Atualizar Cliente" class="btn" style="width: 100%;">
-                <a href="?acao=listar">Cancelar</a>
-            </form>
+    <?php elseif ($acao == 'adicionar'): ?>
+        <div class="card shadow-sm border-0" style="max-width: 600px;">
+            <div class="card-body">
+                <h5 class="card-title text-primary mb-3">Registrar Cliente</h5>
+                <form action="?acao=salvar_novo" method="POST">
+                    <div class="row">
+                        <div class="col-md-12 mb-3"><label class="form-label">Nome</label><input type="text" name="nome" class="form-control" required></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">E-mail</label><input type="email" name="email" class="form-control"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Telefone</label><input type="text" name="telefone" class="form-control"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Aparelho</label><input type="text" name="modelo_aparelho" class="form-control" required></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Status</label>
+                            <select name="status_servico" class="form-select">
+                                <option>Avaliação técnica</option><option>Orçamento enviado</option>
+                                <option>Aguardando aprovação</option><option>Aguardando peça</option>
+                                <option>Em andamento</option><option>Concluído</option><option>Sem conserto</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 mb-3"><label class="form-label">Problema Relatado</label><textarea name="problema_relatado" class="form-control" rows="2" required></textarea></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Salvar Registro</button>
+                    <a href="?acao=listar" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
         </div>
-    <?php else: ?>
-        <p style="color:red;">Cliente não encontrado.</p>
-        <a href="?acao=listar">Voltar</a>
-    <?php endif; endif; ?>
-
+    <?php endif; ?>
+</div>
 </body>
 </html>
