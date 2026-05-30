@@ -2,7 +2,7 @@
 session_start();
 require 'conexao.php';
 
-// Limite de tentativas via Sessão (Aula 5 LPI)
+// Limite de tentativas via Sessão 
 if (!isset($_SESSION['tentativas'])) {
     $_SESSION['tentativas'] = 0;
 }
@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $senha = $_POST["password"];
     $ip = $_SERVER['REMOTE_ADDR'];
 
-    // Uso de Prepared Statement (Justificativa 1 - Prevenção SQLi)
+    // Uso de Prepared Statement 
     $stmt = $conn->prepare("SELECT id, nome, senha_hash, perfil, ativo FROM usuarios WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();

@@ -2,9 +2,8 @@
 session_start();
 require 'conexao.php';
 
-// ==========================================
-// CONTROLE DE SESSÃO E EXPIRAÇÃO (Segurança)
-// ==========================================
+// CONTROLE DE SESSÃO E EXPIRAÇÃO
+
 if (!isset($_SESSION['id_usuario'])) {
     header("Location: login.php");
     exit;
@@ -22,9 +21,7 @@ $_SESSION['data_expiracao'] = date("Y-m-d H:i:s", strtotime("+15 minutes"));
 $isAdmin = ($_SESSION['perfil'] === 'admin');
 $acao = isset($_GET['acao']) ? $_GET['acao'] : 'listar';
 
-// ==========================================
 // LÓGICA DE PROCESSAMENTO SEGURA (CRUD)
-// ==========================================
 
 // 1. EXCLUIR
 if ($acao == 'excluir' && isset($_GET['id'])) {
